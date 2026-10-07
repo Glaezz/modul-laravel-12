@@ -328,10 +328,12 @@ use Illuminate\Support\Facades\Route;
 // Public
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
 
 // Protected
 Route::middleware(['auth'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
     Route::get('/', function () {
         return redirect()->route('books.index');
     });
@@ -345,6 +347,8 @@ Route::middleware(['auth'])->group(function () {
 ```
 
 Perhatikan: baris `Route::resource('categories', CategoryController::class)->except(['show']);` yang sejak Pertemuan 5 berdiri sendiri di luar group mana pun **sengaja dihilangkan dulu** dari potongan di atas - bukan lupa. Kalau baris lama itu masih tersisa di file kamu setelah paste kode di atas, **hapus manual**, karena akan ditambahkan lagi dalam bentuk yang sudah diproteksi di Langkah 5. Kalau baris lama dibiarkan nyangkut di luar group, route lama yang tidak terproteksi itu tetap aktif akibatnya middleware admin di Langkah 5 terlihat tidak berfungsi karena route lama yang belum dihapus.
+
+Route `/logout` pada baris `Route::post('/logout', [AuthController::class, 'logout'])->name('logout');` diletakkan di dalam middleware auth (protected) untuk mencegah **Error/Crash** dan **Efisiensi resource server**. Alasannya route logout memanggil query untuk mencari pengguna dan menghapus sesi dari server, jika route diletakkan sebagai route public maka server dapat mengalami error saat mencoba mencari session user yang belum pernah login atau dapat menjadi celah **Denial of Service** untuk mematikan server sistem karena terus menerus menjalankan query.
 
 Route `/` untuk sementara hanya redirect ke `/books` - halaman dashboard dengan statistik sungguhan baru dibangun di Pertemuan 10 setelah REST API tersedia, jadi belum ada `DashboardController` di titik ini.
 

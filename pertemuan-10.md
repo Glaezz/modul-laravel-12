@@ -3,13 +3,14 @@
 <div style="text-align: justify;">
 
 > **Sebelumnya:** Pertemuan 9 membangun REST API lengkap (`books`, `members`, `loans`, `stats`) yang mengembalikan JSON lewat API Resource - tapi endpoint-endpoint itu baru diuji dari luar aplikasi, lewat Postman.
-> **Pertemuan ini:** Aplikasi Laravel yang sama menjadi *klien* dari API-nya sendiri - `DashboardController` dan `LoanController@report` memakai Laravel HTTP Client untuk memanggil `GET /api/stats` dan `GET /api/loans`, lalu menampilkan hasilnya di halaman Blade. Project juga dilengkapi Seeder & Factory supaya database punya data dummy realistis untuk demo, menutup rangkaian praktikum sebelum UAS.
+> **Pertemuan ini:** Aplikasi Laravel yang sama menjadi _klien_ dari API-nya sendiri - `DashboardController` dan `LoanController@report` memakai Laravel HTTP Client untuk memanggil `GET /api/stats` dan `GET /api/loans`, lalu menampilkan hasilnya di halaman Blade. Project juga dilengkapi Seeder & Factory supaya database punya data dummy realistis untuk demo, menutup rangkaian praktikum sebelum UAS.
 
 ---
 
 ## Capaian Pembelajaran
 
 Setelah menyelesaikan pertemuan ini, mahasiswa mampu:
+
 1. Memahami konsep mengonsumsi API dari dalam aplikasi sendiri
 2. Menggunakan Laravel HTTP Client untuk memanggil API endpoint
 3. Menampilkan data dari respons API ke halaman Blade
@@ -21,11 +22,11 @@ Setelah menyelesaikan pertemuan ini, mahasiswa mampu:
 
 Pertemuan 9 menutup dengan satu kalimat penting: REST API menyediakan "satu sumber data yang sama, dalam format netral, yang bisa dikonsumsi klien apa pun tanpa peduli klien itu ditulis dalam bahasa atau platform apa". Klien itu tidak harus berupa aplikasi terpisah seperti mobile app atau frontend JavaScript - aplikasi Laravel yang sama, dari sisi Blade-nya, juga bisa berperan sebagai klien dari API miliknya sendiri. Ini terdengar aneh di awal ("kenapa aplikasi manggil dirinya sendiri lewat HTTP, padahal bisa langsung query Eloquent?"), tapi justru di situlah nilainya sebagai latihan: begitu sebuah halaman Blade terbukti bisa mengonsumsi API internal dengan benar, halaman yang sama itu - tanpa perubahan logic tampilan sama sekali - siap dialihkan untuk mengonsumsi API dari server lain di masa depan (microservice, layanan pihak ketiga, atau versi mobile-first dari aplikasi yang sama). Pola konsumsi API tidak berubah, yang berubah cuma URL dan mungkin autentikasinya.
 
-Ada juga alasan yang lebih praktis: memisahkan "cara data disajikan" dari "cara data ditampilkan". `DashboardController@index` di pertemuan ini tidak tahu dan tidak peduli bagaimana `Api\StatsController` menghitung `total_buku`. dia cuma tahu bahwa `GET /api/stats` akan mengembalikan JSON berbentuk `{"total_buku": ..., "total_anggota": ..., "peminjaman_aktif": ...}`. Kalau suatu saat logic penghitungan statistik berubah (misalnya butuh cache, atau query yang lebih rumit), `DashboardController` tidak perlu disentuh sama sekali selama bentuk responsnya tetap sama - inilah manfaat *separation of concerns* yang sama yang mendasari kenapa Model, View, dan Controller dipisah di MVC, diterapkan sekali lagi di level yang lebih besar: pemisahan antara *penyedia data* (API) dan *konsumen data* (Blade).
+Ada juga alasan yang lebih praktis: memisahkan "cara data disajikan" dari "cara data ditampilkan". `DashboardController@index` di pertemuan ini tidak tahu dan tidak peduli bagaimana `Api\StatsController` menghitung `total_buku`. dia cuma tahu bahwa `GET /api/stats` akan mengembalikan JSON berbentuk `{"total_buku": ..., "total_anggota": ..., "peminjaman_aktif": ...}`. Kalau suatu saat logic penghitungan statistik berubah (misalnya butuh cache, atau query yang lebih rumit), `DashboardController` tidak perlu disentuh sama sekali selama bentuk responsnya tetap sama - inilah manfaat _separation of concerns_ yang sama yang mendasari kenapa Model, View, dan Controller dipisah di MVC, diterapkan sekali lagi di level yang lebih besar: pemisahan antara _penyedia data_ (API) dan _konsumen data_ (Blade).
 
-Pola ini juga framework-agnostic dan sangat umum di industri, sering disebut *BFF (Backend for Frontend)* atau *service-to-service call*. Aplikasi Next.js sering punya API Route internal (`/api/...`) yang dipanggil dari halaman React di aplikasi yang sama lewat `fetch()`. Aplikasi Django dengan Django REST Framework sering punya template HTML yang memanggil endpoint API-nya sendiri lewat `requests.get()` di view function, terutama saat data yang sama juga perlu diekspos ke klien eksternal. Bahkan di arsitektur microservice skala besar, layanan "front-end" (*gateway* atau *BFF service*) hampir selalu memanggil layanan lain lewat HTTP/gRPC, bukan mengakses database layanan lain secara langsung - prinsip yang sama, cuma skalanya lebih besar. Memahami pola ini di skala kecil (satu aplikasi Laravel memanggil dirinya sendiri) memberi fondasi untuk memahami arsitektur yang jauh lebih besar nanti.
+Pola ini juga framework-agnostic dan sangat umum di industri, sering disebut _BFF (Backend for Frontend)_ atau _service-to-service call_. Aplikasi Next.js sering punya API Route internal (`/api/...`) yang dipanggil dari halaman React di aplikasi yang sama lewat `fetch()`. Aplikasi Django dengan Django REST Framework sering punya template HTML yang memanggil endpoint API-nya sendiri lewat `requests.get()` di view function, terutama saat data yang sama juga perlu diekspos ke klien eksternal. Bahkan di arsitektur microservice skala besar, layanan "front-end" (_gateway_ atau _BFF service_) hampir selalu memanggil layanan lain lewat HTTP/gRPC, bukan mengakses database layanan lain secara langsung - prinsip yang sama, cuma skalanya lebih besar. Memahami pola ini di skala kecil (satu aplikasi Laravel memanggil dirinya sendiri) memberi fondasi untuk memahami arsitektur yang jauh lebih besar nanti.
 
-Namun ada satu hal teknis penting yang justru menjadi pelajaran tersendiri di pertemuan ini: server pengembangan `php artisan serve` (PHP built-in web server) secara default hanya memproses **satu request pada satu waktu**. Kalau sebuah request yang sedang diproses server itu sendiri membuat request HTTP baru ke server yang sama, request baru itu tidak akan pernah bisa diterima - server masih sibuk memproses request pertama, padahal request pertama itu sedang menunggu balasan dari request kedua. Ini disebut *deadlock*: dua pihak saling menunggu, dan tidak ada yang bisa maju. Skenario ini bukan bug di kode aplikasi, melainkan karakteristik dari server pengembangan yang dipakai - di produksi sungguhan (Nginx + PHP-FPM, atau Laravel Octane), banyak request bisa diproses bersamaan sehingga masalah ini tidak muncul. Memahami *kenapa* deadlock ini terjadi, dan bagaimana cara pragmatis mengatasinya di lingkungan pengembangan lokal, adalah bagian dari materi pertemuan ini - bukan sekadar "tempelkan kode ini supaya jalan".
+Namun ada satu hal teknis penting yang justru menjadi pelajaran tersendiri di pertemuan ini: server pengembangan `php artisan serve` (PHP built-in web server) secara default hanya memproses **satu request pada satu waktu**. Kalau sebuah request yang sedang diproses server itu sendiri membuat request HTTP baru ke server yang sama, request baru itu tidak akan pernah bisa diterima - server masih sibuk memproses request pertama, padahal request pertama itu sedang menunggu balasan dari request kedua. Ini disebut _deadlock_: dua pihak saling menunggu, dan tidak ada yang bisa maju. Skenario ini bukan bug di kode aplikasi, melainkan karakteristik dari server pengembangan yang dipakai - di produksi sungguhan (Nginx + PHP-FPM, atau Laravel Octane), banyak request bisa diproses bersamaan sehingga masalah ini tidak muncul. Memahami _kenapa_ deadlock ini terjadi, dan bagaimana cara pragmatis mengatasinya di lingkungan pengembangan lokal, adalah bagian dari materi pertemuan ini - bukan sekadar "tempelkan kode ini supaya jalan".
 
 ---
 
@@ -57,7 +58,7 @@ if ($response->successful()) {
 }
 ```
 
-`$response->successful()` mengembalikan `true` kalau status code response ada di rentang `2xx` - cara idiomatis untuk memastikan request benar-benar berhasil sebelum mencoba membaca isinya. Tapi `successful()` cuma menangani kasus "server membalas, tapi dengan status gagal" (misalnya `404` atau `500`) - ada kasus lain yang lebih parah: server tujuan **sama sekali tidak bisa dihubungi** (mati, port salah, firewall). Dalam kasus itu, `Http::get()` tidak mengembalikan `Response` sama sekali, melainkan melempar `Illuminate\Http\Client\ConnectionException`. Kalau exception ini tidak ditangkap, kode tidak akan pernah sampai ke baris `$response->successful()` - request-nya sendiri gagal total sebelum ada response untuk diperiksa, dan halaman akan menampilkan error 500 ke pengguna. Kode yang baik menyediakan nilai *fallback* untuk **kedua** skenario ini - status gagal maupun gagal connect sama sekali - bukan cuma salah satunya:
+`$response->successful()` mengembalikan `true` kalau status code response ada di rentang `2xx` - cara idiomatis untuk memastikan request benar-benar berhasil sebelum mencoba membaca isinya. Tapi `successful()` cuma menangani kasus "server membalas, tapi dengan status gagal" (misalnya `404` atau `500`) - ada kasus lain yang lebih parah: server tujuan **sama sekali tidak bisa dihubungi** (mati, port salah, firewall). Dalam kasus itu, `Http::get()` tidak mengembalikan `Response` sama sekali, melainkan melempar `Illuminate\Http\Client\ConnectionException`. Kalau exception ini tidak ditangkap, kode tidak akan pernah sampai ke baris `$response->successful()` - request-nya sendiri gagal total sebelum ada response untuk diperiksa, dan halaman akan menampilkan error 500 ke pengguna. Kode yang baik menyediakan nilai _fallback_ untuk **kedua** skenario ini - status gagal maupun gagal connect sama sekali - bukan cuma salah satunya:
 
 ```php
 // Contoh ilustrasi konsep - bukan langkah praktikum
@@ -72,7 +73,7 @@ try {
 
 ### Kenapa Consume API Internal Bisa Deadlock - dan Solusinya
 
-Seperti dibahas di bagian Konsep, `php artisan serve` memproses satu request per waktu. Kalau `DashboardController` memanggil `Http::get(url('/api/stats'))` - yaitu, memanggil balik ke *port yang sama* dengan server yang sedang memproses request itu - server tidak akan pernah bisa menerima request kedua itu, karena dia masih "terkunci" memproses request pertama yang justru sedang menunggu balasan dari request kedua. Hasilnya: halaman menggantung (hang) tanpa henti sampai akhirnya `Http::get()` timeout dengan error koneksi.
+Seperti dibahas di bagian Konsep, `php artisan serve` memproses satu request per waktu. Kalau `DashboardController` memanggil `Http::get(url('/api/stats'))` - yaitu, memanggil balik ke _port yang sama_ dengan server yang sedang memproses request itu - server tidak akan pernah bisa menerima request kedua itu, karena dia masih "terkunci" memproses request pertama yang justru sedang menunggu balasan dari request kedua. Hasilnya: halaman menggantung (hang) tanpa henti sampai akhirnya `Http::get()` timeout dengan error koneksi.
 
 Solusi pragmatis untuk lingkungan pengembangan lokal adalah menjalankan **dua instance** `php artisan serve` di port berbeda - satu untuk melayani trafik browser seperti biasa, satu lagi khusus menerima panggilan API dari dalam aplikasi sendiri:
 
@@ -165,7 +166,7 @@ public function run(): void
 
 `{{ $books->links() }}` yang sudah dipakai sejak Pertemuan 5 sebenarnya menyembunyikan asumsi penting: view pagination default Laravel (namanya `tailwind`) dirender pakai ikon panah SVG dan class CSS Tailwind (`sm:inline-flex`, `rounded-md`, dsb) untuk mengatur ukuran, warna, dan tata letaknya. Selama jumlah data masih sedikit (≤ 10 baris, jadi cuma 1 halaman), `hasPages()` bernilai `false` dan `links()` tidak merender apa-apa - masalahnya tersembunyi begitu saja. Begitu Pertemuan 10 menambah data lewat Seeder (20 buku, 15 anggota - otomatis jadi 2 halaman), pagination akhirnya benar-benar dirender, dan baru ketahuan project ini **tidak pernah memuat Tailwind CSS** sama sekali (layout `app.blade.php` sejak Pertemuan 4 cuma pakai CSS custom polos di dalam tag `<style>`). Tanpa Tailwind, ikon SVG tetap muncul tapi ukurannya tidak dibatasi apa-apa - tampil raksasa dan merusak layout halaman.
 
-Ini bukan bug di kode CRUD yang sudah dibuat sejak Pertemuan 5-7 - kodenya benar, cuma asumsinya (Tailwind tersedia) tidak sesuai kondisi project. Solusinya bukan memasang Tailwind CSS (perubahan besar di luar cakupan modul ini), melainkan mengganti *view* pagination dengan versi yang cuma pakai teks/link biasa, konsisten dengan gaya visual project yang sudah ada. Laravel mendukung ini lewat `Paginator::defaultView()` - didaftarkan sekali di `AppServiceProvider`, otomatis berlaku ke **semua** pemanggilan `->links()` di seluruh project tanpa perlu mengubah satu pun Blade file CRUD yang sudah ada.
+Ini bukan bug di kode CRUD yang sudah dibuat sejak Pertemuan 5-7 - kodenya benar, cuma asumsinya (Tailwind tersedia) tidak sesuai kondisi project. Solusinya bukan memasang Tailwind CSS (perubahan besar di luar cakupan modul ini), melainkan mengganti _view_ pagination dengan versi yang cuma pakai teks/link biasa, konsisten dengan gaya visual project yang sudah ada. Laravel mendukung ini lewat `Paginator::defaultView()` - didaftarkan sekali di `AppServiceProvider`, otomatis berlaku ke **semua** pemanggilan `->links()` di seluruh project tanpa perlu mengubah satu pun Blade file CRUD yang sudah ada.
 
 ---
 
@@ -263,10 +264,11 @@ use Illuminate\Support\Facades\Route;
 // Public
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Protected
 Route::middleware(['auth'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::resource('books', BookController::class);
@@ -287,30 +289,31 @@ Route::middleware(['auth'])->group(function () {
 
 ```html
 <!-- File: resources/views/dashboard.blade.php -->
-@extends('layouts.app')
+@extends('layouts.app') @section('title', 'Dashboard') @section('content')
+<h1>Dashboard</h1>
+<p>
+  Ringkasan statistik perpustakaan, diambil langsung dari
+  <code>GET /api/stats</code>.
+</p>
 
-@section('title', 'Dashboard')
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="value">{{ $stats['total_buku'] }}</div>
+    <div class="label">Total Buku</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ $stats['total_anggota'] }}</div>
+    <div class="label">Total Anggota</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ $stats['peminjaman_aktif'] }}</div>
+    <div class="label">Peminjaman Aktif</div>
+  </div>
+</div>
 
-@section('content')
-    <h1>Dashboard</h1>
-    <p>Ringkasan statistik perpustakaan, diambil langsung dari <code>GET /api/stats</code>.</p>
-
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="value">{{ $stats['total_buku'] }}</div>
-            <div class="label">Total Buku</div>
-        </div>
-        <div class="stat-card">
-            <div class="value">{{ $stats['total_anggota'] }}</div>
-            <div class="label">Total Anggota</div>
-        </div>
-        <div class="stat-card">
-            <div class="value">{{ $stats['peminjaman_aktif'] }}</div>
-            <div class="label">Peminjaman Aktif</div>
-        </div>
-    </div>
-
-    <p style="margin-top: 24px;"><a href="{{ route('loans.report') }}" class="btn">Lihat Laporan Peminjaman</a></p>
+<p style="margin-top: 24px;">
+  <a href="{{ route('loans.report') }}" class="btn">Lihat Laporan Peminjaman</a>
+</p>
 @endsection
 ```
 
@@ -318,13 +321,34 @@ Kartu statistik di atas pakai class `.stats-grid`/`.stat-card` yang belum ada di
 
 ```css
 /* File: resources/views/layouts/app.blade.php (di dalam tag <style>) */
-.stats-grid { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
-.stat-card { flex: 1; min-width: 160px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center; }
-.stat-card .value { font-size: 32px; font-weight: bold; color: #1e3a8a; }
-.stat-card .label { margin-top: 6px; color: #6b7280; font-size: 14px; }
+.stats-grid {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.stat-card {
+  flex: 1;
+  min-width: 160px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+}
+.stat-card .value {
+  font-size: 32px;
+  font-weight: bold;
+  color: #1e3a8a;
+}
+.stat-card .label {
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 14px;
+}
 ```
 
-> 📸 *Screenshot: Halaman Dashboard menampilkan tiga kartu statistik (Total Buku, Total Anggota, Peminjaman Aktif) dengan angka sesuai data di database.*
+> 📸 _Screenshot: Halaman Dashboard menampilkan tiga kartu statistik (Total Buku, Total Anggota, Peminjaman Aktif) dengan angka sesuai data di database._
 
 ### Langkah 3 - `LoanController@report` Mengonsumsi `GET /api/loans`
 
@@ -375,64 +399,65 @@ public function report(Request $request)
 
 ```html
 <!-- File: resources/views/loans/report.blade.php -->
-@extends('layouts.app')
-
-@section('title', 'Laporan Peminjaman')
-
+@extends('layouts.app') @section('title', 'Laporan Peminjaman')
 @section('content')
-    <h1>Laporan Peminjaman</h1>
-    <p>Data diambil langsung dari <code>GET /api/loans</code>, bukan query database langsung.</p>
+<h1>Laporan Peminjaman</h1>
+<p>
+  Data diambil langsung dari <code>GET /api/loans</code>, bukan query database
+  langsung.
+</p>
 
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Anggota</th>
-                <th>Petugas</th>
-                <th>Buku</th>
-                <th>Tgl Pinjam</th>
-                <th>Tgl Kembali</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($loans as $loan)
-                <tr>
-                    <td>{{ $loan['id'] }}</td>
-                    <td>{{ $loan['member']['nama'] }}</td>
-                    <td>{{ $loan['petugas']['name'] }}</td>
-                    <td>
-                        @foreach ($loan['books'] as $book)
-                            {{ $book['judul'] }}@if (!$loop->last), @endif
-                        @endforeach
-                    </td>
-                    <td>{{ $loan['tanggal_pinjam'] }}</td>
-                    <td>{{ $loan['tanggal_kembali'] }}</td>
-                    <td>{{ ucfirst($loan['status']) }}</td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="7">Belum ada data peminjaman.</td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Anggota</th>
+      <th>Petugas</th>
+      <th>Buku</th>
+      <th>Tgl Pinjam</th>
+      <th>Tgl Kembali</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    @forelse ($loans as $loan)
+    <tr>
+      <td>{{ $loan['id'] }}</td>
+      <td>{{ $loan['member']['nama'] }}</td>
+      <td>{{ $loan['petugas']['name'] }}</td>
+      <td>
+        @foreach ($loan['books'] as $book) {{ $book['judul'] }}@if
+        (!$loop->last), @endif @endforeach
+      </td>
+      <td>{{ $loan['tanggal_pinjam'] }}</td>
+      <td>{{ $loan['tanggal_kembali'] }}</td>
+      <td>{{ ucfirst($loan['status']) }}</td>
+    </tr>
+    @empty
+    <tr>
+      <td colspan="7">Belum ada data peminjaman.</td>
+    </tr>
+    @endforelse
+  </tbody>
+</table>
 
-    @if ($meta && $meta['last_page'] > 1)
-        <p>
-            @if ($meta['current_page'] > 1)
-                <a href="{{ route('loans.report', ['page' => $meta['current_page'] - 1]) }}">&laquo; Sebelumnya</a>
-            @endif
-            Halaman {{ $meta['current_page'] }} dari {{ $meta['last_page'] }}
-            @if ($meta['current_page'] < $meta['last_page'])
-                <a href="{{ route('loans.report', ['page' => $meta['current_page'] + 1]) }}">Selanjutnya &raquo;</a>
-            @endif
-        </p>
-    @endif
-@endsection
+@if ($meta && $meta['last_page'] > 1)
+<p>
+  @if ($meta['current_page'] > 1)
+  <a href="{{ route('loans.report', ['page' => $meta['current_page'] - 1]) }}"
+    >&laquo; Sebelumnya</a
+  >
+  @endif Halaman {{ $meta['current_page'] }} dari {{ $meta['last_page'] }} @if
+  ($meta['current_page'] < $meta['last_page'])
+  <a href="{{ route('loans.report', ['page' => $meta['current_page'] + 1]) }}"
+    >Selanjutnya &raquo;</a
+  >
+  @endif
+</p>
+@endif @endsection
 ```
 
-> 📸 *Screenshot: Halaman Laporan Peminjaman menampilkan tabel transaksi dari `GET /api/loans`, lengkap dengan navigasi halaman.*
+> 📸 _Screenshot: Halaman Laporan Peminjaman menampilkan tabel transaksi dari `GET /api/loans`, lengkap dengan navigasi halaman._
 
 ### Langkah 4 - Redirect Login Diarahkan ke Dashboard
 
@@ -451,29 +476,70 @@ Tambahkan dua item navigasi baru di `partials/navbar.blade.php`, satu ke Dashboa
 ```html
 <!-- File: resources/views/partials/navbar.blade.php -->
 <nav>
-    <div class="brand">📚 Perpustakaan Digital Kampus</div>
-    @auth
-        <ul>
-            <li><a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">Dashboard</a></li>
-            <li><a href="{{ route('books.index') }}" class="{{ request()->routeIs('books.*') ? 'active' : '' }}">Buku</a></li>
-            @if (auth()->user()->role === 'admin')
-                <li><a href="{{ route('categories.index') }}" class="{{ request()->routeIs('categories.*') ? 'active' : '' }}">Kategori</a></li>
-            @endif
-            <li><a href="{{ route('members.index') }}" class="{{ request()->routeIs('members.*') ? 'active' : '' }}">Anggota</a></li>
-            <li><a href="{{ route('loans.index') }}" class="{{ request()->routeIs('loans.index') || request()->routeIs('loans.create') || request()->routeIs('loans.show') || request()->routeIs('loans.edit') ? 'active' : '' }}">Peminjaman</a></li>
-            <li><a href="{{ route('loans.report') }}" class="{{ request()->routeIs('loans.report') ? 'active' : '' }}">Laporan</a></li>
-        </ul>
-        <div class="navbar-user">
-            <span>{{ auth()->user()->name }} ({{ ucfirst(auth()->user()->role) }})</span>
-            <form action="{{ route('logout') }}" method="POST" class="inline">
-                @csrf
-                <button type="submit" class="btn-logout">Logout</button>
-            </form>
-        </div>
-    @endauth
-    @guest
-        <a href="{{ route('login') }}" class="{{ request()->routeIs('login') ? 'active' : '' }}">Login</a>
-    @endguest
+  <div class="brand">📚 Perpustakaan Digital Kampus</div>
+  @auth
+  <ul>
+    <li>
+      <a
+        href="{{ route('dashboard') }}"
+        class="{{ request()->routeIs('dashboard') ? 'active' : '' }}"
+        >Dashboard</a
+      >
+    </li>
+    <li>
+      <a
+        href="{{ route('books.index') }}"
+        class="{{ request()->routeIs('books.*') ? 'active' : '' }}"
+        >Buku</a
+      >
+    </li>
+    @if (auth()->user()->role === 'admin')
+    <li>
+      <a
+        href="{{ route('categories.index') }}"
+        class="{{ request()->routeIs('categories.*') ? 'active' : '' }}"
+        >Kategori</a
+      >
+    </li>
+    @endif
+    <li>
+      <a
+        href="{{ route('members.index') }}"
+        class="{{ request()->routeIs('members.*') ? 'active' : '' }}"
+        >Anggota</a
+      >
+    </li>
+    <li>
+      <a
+        href="{{ route('loans.index') }}"
+        class="{{ request()->routeIs('loans.index') || request()->routeIs('loans.create') || request()->routeIs('loans.show') || request()->routeIs('loans.edit') ? 'active' : '' }}"
+        >Peminjaman</a
+      >
+    </li>
+    <li>
+      <a
+        href="{{ route('loans.report') }}"
+        class="{{ request()->routeIs('loans.report') ? 'active' : '' }}"
+        >Laporan</a
+      >
+    </li>
+  </ul>
+  <div class="navbar-user">
+    <span
+      >{{ auth()->user()->name }} ({{ ucfirst(auth()->user()->role) }})</span
+    >
+    <form action="{{ route('logout') }}" method="POST" class="inline">
+      @csrf
+      <button type="submit" class="btn-logout">Logout</button>
+    </form>
+  </div>
+  @endauth @guest
+  <a
+    href="{{ route('login') }}"
+    class="{{ request()->routeIs('login') ? 'active' : '' }}"
+    >Login</a
+  >
+  @endguest
 </nav>
 ```
 
@@ -791,27 +857,22 @@ mkdir -p resources/views/vendor/pagination
 ```html
 <!-- File: resources/views/vendor/pagination/custom.blade.php -->
 @if ($paginator->hasPages())
-    <nav class="pagination">
-        @if ($paginator->onFirstPage())
-            <span class="pagination-disabled">&laquo; Sebelumnya</span>
-        @else
-            <a href="{{ $paginator->previousPageUrl() }}">&laquo; Sebelumnya</a>
-        @endif
-
-        @foreach ($paginator->getUrlRange(1, $paginator->lastPage()) as $page => $url)
-            @if ($page == $paginator->currentPage())
-                <span class="pagination-current">{{ $page }}</span>
-            @else
-                <a href="{{ $url }}">{{ $page }}</a>
-            @endif
-        @endforeach
-
-        @if ($paginator->hasMorePages())
-            <a href="{{ $paginator->nextPageUrl() }}">Berikutnya &raquo;</a>
-        @else
-            <span class="pagination-disabled">Berikutnya &raquo;</span>
-        @endif
-    </nav>
+<nav class="pagination">
+  @if ($paginator->onFirstPage())
+  <span class="pagination-disabled">&laquo; Sebelumnya</span>
+  @else
+  <a href="{{ $paginator->previousPageUrl() }}">&laquo; Sebelumnya</a>
+  @endif @foreach ($paginator->getUrlRange(1, $paginator->lastPage()) as $page
+  => $url) @if ($page == $paginator->currentPage())
+  <span class="pagination-current">{{ $page }}</span>
+  @else
+  <a href="{{ $url }}">{{ $page }}</a>
+  @endif @endforeach @if ($paginator->hasMorePages())
+  <a href="{{ $paginator->nextPageUrl() }}">Berikutnya &raquo;</a>
+  @else
+  <span class="pagination-disabled">Berikutnya &raquo;</span>
+  @endif
+</nav>
 @endif
 ```
 
@@ -844,14 +905,30 @@ Tambahkan CSS untuk class `.pagination` di layout master, langsung setelah CSS `
 
 ```css
 /* File: resources/views/layouts/app.blade.php (di dalam tag <style>) */
-.pagination { margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.pagination a { color: #2563eb; text-decoration: none; }
-.pagination a:hover { text-decoration: underline; }
-.pagination .pagination-current { font-weight: bold; color: #1e3a8a; }
-.pagination .pagination-disabled { color: #9ca3af; }
+.pagination {
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.pagination a {
+  color: #2563eb;
+  text-decoration: none;
+}
+.pagination a:hover {
+  text-decoration: underline;
+}
+.pagination .pagination-current {
+  font-weight: bold;
+  color: #1e3a8a;
+}
+.pagination .pagination-disabled {
+  color: #9ca3af;
+}
 ```
 
-> 📸 *Screenshot: Halaman `/books` menampilkan pagination berupa teks/link bersih (`« Sebelumnya`, nomor halaman, `Berikutnya »`) - bukan lagi ikon SVG raksasa tak berstyle.*
+> 📸 _Screenshot: Halaman `/books` menampilkan pagination berupa teks/link bersih (`« Sebelumnya`, nomor halaman, `Berikutnya »`) - bukan lagi ikon SVG raksasa tak berstyle._
 
 ### Langkah 8 - Ujicoba
 
@@ -863,7 +940,7 @@ Tambahkan CSS untuk class `.pagination` di layout master, langsung setelah CSS `
 6. Klik "Lihat Laporan Peminjaman" atau buka `/loans/report` - pastikan tabel 10 transaksi tampil lengkap dengan nama anggota, petugas, daftar buku, dan status.
 7. Coba matikan server kedua (port `8011`) sementara server utama tetap jalan, lalu refresh Dashboard dan Laporan Peminjaman - pastikan **kedua** halaman tetap tampil (statistik angka `0`, tabel laporan kosong) alih-alih error 500, membuktikan `try/catch ConnectionException` bekerja.
 
-> 📸 *Screenshot: Dua terminal berjalan berdampingan menampilkan `php artisan serve --port=8000` dan `php artisan serve --port=8011` masing-masing "Server running".*
+> 📸 _Screenshot: Dua terminal berjalan berdampingan menampilkan `php artisan serve --port=8000` dan `php artisan serve --port=8011` masing-masing "Server running"._
 
 ---
 
@@ -886,6 +963,7 @@ Project sudah lengkap secara fungsional - tugas pertemuan ini murni finalisasi m
 3. **Update `README.md`** di root repository `app-perpustakaan` - cara clone, install dependency (`composer install`), setup `.env` (termasuk `INTERNAL_API_URL`), migrate & seed database, serta cara menjalankan **dua** server (`php artisan serve --port=8000` dan `--port=8011`) yang dibutuhkan supaya Dashboard dan Laporan berfungsi.
 
 **Yang dikumpulkan:**
+
 - Link commit GitHub (branch `main`, hasil merge dari `dev`) yang berisi hasil tugas
 - File `DEMO.md` berisi skenario demo tertulis
 - `README.md` yang sudah diperbarui
@@ -894,4 +972,4 @@ Project sudah lengkap secara fungsional - tugas pertemuan ini murni finalisasi m
 
 </div>
 
-*Navigasi: [← Pertemuan sebelumnya](./pertemuan-09.md) | [Daftar Isi](./README.md) | [Pertemuan berikutnya →](./pertemuan-11.md)*
+_Navigasi: [← Pertemuan sebelumnya](./pertemuan-09.md) | [Daftar Isi](./README.md) | [Pertemuan berikutnya →](./pertemuan-11.md)_
